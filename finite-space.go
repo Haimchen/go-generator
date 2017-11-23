@@ -8,10 +8,8 @@ import (
 // configure this level
 const worldSize = 25
 const fullnessFactor = 0.4
-const idealTunnelLength = 5
-const idealRoomSize = 16
 
-var roomTypes = [4]Room{
+var roomTypes = []Room{
 	Room{height: 3, width: 3},
 	Room{height: 3, width: 4},
 	Room{height: 4, width: 3},
@@ -45,7 +43,7 @@ func main() {
 	fmt.Println("starting world generation")
 
 	// initialize empty world matrix
-	world := initialize()
+	world := &World{}
 	printWorld(world)
 
 	// recursively split world into chunks
@@ -63,10 +61,18 @@ func main() {
 	buildRooms(world)
 
 	printWorld(world)
-	// make a new matrix with all the chunks
+
+	// make a new maze with all the chunks
 	// define a starting chunk
 	// find a path that connects all chunks ( recursive backtracker?)
-	// result: all connections (== no wall) between chunks
+	// result: all connections between chunks
+	chunkRows := worldSize / chunkHeight
+	chunkCols := worldSize / chunkWidth
+	connections := BuildConnections(chunkRows, chunkCols)
+	fmt.Printf("Built %d connections:\n", len(connections))
+	for _, points := range connections {
+		fmt.Println(points)
+	}
 
 	// create random tunnels connecting the rooms for which a connection was defined
 	// find entrance and exit fields for each room?
@@ -85,11 +91,6 @@ func main() {
 }
 
 // ----------------World Generation----------------
-
-func initialize() (world *World) {
-	world = &World{}
-	return
-}
 
 func isRoomInChunk(chunk Chunk, start Point, room Room) bool {
 	top, bottom := getRoomCoords(start, room)
@@ -116,11 +117,11 @@ func buildRooms(world *World) {
 			isRoomOutside = !isRoomInChunk(chunk, startingPoint, room)
 		}
 		fmt.Printf("Found a valid starting Point: (%d/%d)\n", startingPoint.x, startingPoint.y)
-		drawRoom(world, startingPoint, room)
+		world.insertRoom(startingPoint, room)
 	}
 }
 
-func drawRoom(world *World, start Point, room Room) {
+func (world *World) insertRoom(start Point, room Room) {
 	top, bottom := getRoomCoords(start, room)
 	fmt.Printf("Drawing new room(%dx%d): (%d/%d) to (%d/%d)", room.width, room.height, top.x, top.y, bottom.x, bottom.y)
 
@@ -131,6 +132,18 @@ func drawRoom(world *World, start Point, room Room) {
 			world.Data[i][j] = 1
 		}
 	}
+}
+
+func (room Room) size() int {
+	return room.height * room.width
+}
+
+func avgSize(rooms []Room) float64 {
+	sumSizes := 0
+	for _, room := range rooms {
+		sumSizes += room.size()
+	}
+	return float64(sumSizes) / float64(len(rooms))
 }
 
 func getRoomCoords(start Point, room Room) (Point, Point) {
@@ -147,7 +160,8 @@ func chunkSize() (int, int) {
 	height, width := worldSize, worldSize
 	lastHeight, lastWidth := height, width
 	currentChunkSize := height * width
-	minSize := int(idealRoomSize * (1 / fullnessFactor))
+	avgRoomSize := avgSize(roomTypes)
+	minSize := int(avgRoomSize * (1 / fullnessFactor))
 
 	for currentChunkSize > minSize {
 		// save last working dimensions
@@ -188,32 +202,4 @@ func chunks(world *World, width, height int) []Chunk {
 		}
 	}
 	return chunks
-}
-
-// -------------- Helper ------------------
-
-func printWorld(world *World) {
-	fmt.Println("Next Iteration:")
-	for _, row := range world.Data {
-		printRow(row[:])
-	}
-}
-
-func printRow(row []Block) {
-	rowString := ""
-	for _, block := range row {
-		rowString = fmt.Sprintf("%s| %s ", rowString, printBlock(block))
-	}
-	fmt.Println(rowString + "|")
-}
-
-func printBlock(block Block) string {
-	switch block {
-	case 0:
-		return "_"
-	case 1:
-		return "X"
-	default:
-		return "_"
-	}
 }
